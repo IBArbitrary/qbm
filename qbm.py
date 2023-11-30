@@ -134,6 +134,25 @@ class QBM:
             "psi0": psi0
         }
 
+    def gen_baker_states(self, N = None):
+        if N is None:
+            N = self.N
+        if (self.B is None) or (self.B["N"] != N):
+            self.baker(N)
+        B = self.B["B"]
+        evals, evecs_ = eig(B)
+        idx = evals.argsort()
+        evals = evals[idx]
+        evecs_ = evecs_[:, idx]
+        evecs = []
+        for _ in range(len(evecs_)):
+            evecs.append(evecs_[:, _])
+        self.baker_states = {
+            "N": N,
+            "evals": evals,
+            "evecs": evecs
+        }
+
     def pq_state(self, p: int, q: int, N = None):
         if N is None:
             N = self.N
@@ -145,6 +164,16 @@ class QBM:
         if N is None:
             N = self.N
         return ((1/N)*(np.abs(self.pq_state(p, q, N).T @ psi)**2))[0,0]
+
+    def R_sym(self, N = None):
+        if N is None:
+            N = self.N
+        R = -1*mpower(self.gen_mat(self.F_kn, N), 2)
+        self.R = {
+            "N": N,
+            "R": R
+        }
+        return R
 
     def autocorr(self, T: int, N = None, alpha = 1):
         if N is None:
