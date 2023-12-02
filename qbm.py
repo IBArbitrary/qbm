@@ -96,6 +96,13 @@ class QBM:
         V = self.UV["V"]
         return exp((1j*pi/N))*(mpower(U, p) @ mpower(inv(V), q))
 
+    def gen_cob_mat(self, N = None, alpha = 1):
+        if N is None:
+            N = self.N
+        F_kn_ = lambda k, n, N: self.F_kn(k, n, N, alpha)
+        F = self.gen_mat(F_kn_, N)
+        return F
+
     def baker(self, N = None, alpha = 1):
         if N is None:
             N = self.N
