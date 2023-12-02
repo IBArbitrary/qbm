@@ -1,10 +1,10 @@
-#!/usr/bin/env python
+"""
+Quantum Baker's Map module.
+"""
 
 # imports
 import numpy as np
-import matplotlib.pyplot as plt
 from scipy.linalg import block_diag
-import matplotlib as mpl
 from tqdm import tqdm
 
 # abbreviations
@@ -23,8 +23,11 @@ class QBM:
         self.UV = None
         self.H = None
         self.B = None
+        self.R = None
         self.psi0 = None
         self.harper_states = None
+        self.baker_states = None
+        self.RT = None
 
     def U_kkp(self, k: int, kp: int, N = None):
         U0 = 0j
@@ -107,9 +110,8 @@ class QBM:
         if N is None:
             N = self.N
         assert N % 2 == 0
-        F_kn_ = lambda k, n, N: self.F_kn(k, n, N, alpha)
-        F_n = self.gen_mat(F_kn_, N)
-        F_n2 = self.gen_mat(F_kn_, N//2)
+        F_n = self.gen_cob_mat(N, alpha)
+        F_n2 = self.gen_cob_mat(N//2, alpha)
         B = inv(F_n) @ block_diag(F_n2, F_n2)
         self.B = {
             "N": N,
@@ -187,12 +189,9 @@ class QBM:
             N = self.N
         if (self.ifUV is False) or (self.UV["N"] != N):
             self.gen_trans_ops()
-        U = self.UV["U"]
-        Vinv = inv(self.UV["V"])
         RT = np.zeros((N, N))
         if (self.psi0 is None) or (self.psi0["N"] != N):
             self.gen_harper_states()
-        psi01 = self.psi0["psi0"]
         if (self.B is None) or (self.B["N"] != N):
             self.baker(N, alpha)
         B = self.B["B"]
