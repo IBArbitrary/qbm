@@ -1,0 +1,180 @@
+{
+ "cells": [
+  {
+   "kind": 2,
+   "value": "(* translation operators *)\nU[k_, kp_, \\[CapitalNu]_] := N[Sum[1/\\[CapitalNu] Exp[I ((2 \\[Pi])/\\[CapitalNu]) ((kp - k + 1) ( n + 1/2))], {n, 0, \\[CapitalNu] - 1}]]\n\nV[k_, kp_, \\[CapitalNu]_] := If[k == kp, N[Exp[I ((2 \\[Pi])/\\[CapitalNu]) (k + 1/2)]], 0]\n\n(* old change of basis *)\nF[k_, n_, \\[CapitalNu]_] := 1/Sqrt[\\[CapitalNu]] Exp[-I ((2 \\[Pi])/\\[CapitalNu]) k n]\n\n(* new change of basis *)\nG[k_, n_, \\[CapitalNu]_] := 1/Sqrt[\\[CapitalNu]] Exp[-I ((2 \\[Pi])/\\[CapitalNu]) (k + 1/2) (n + 1/2)]",
+   "languageId": "wolfram",
+   "outputs": [],
+   "metadata": {},
+   "executionSummary": {
+    "timing": {
+     "startTime": 1701784247004,
+     "endTime": 1701784247244
+    },
+    "executionOrder": 18,
+    "success": true
+   }
+  },
+  {
+   "kind": 2,
+   "value": "(* to generate operators *)\nGenMat[Func_, \\[CapitalNu]_] :=\n Table[Func[i, j, \\[CapitalNu]], {i, 0, \\[CapitalNu] - 1}, {j,\n   0, \\[CapitalNu] - 1}]",
+   "languageId": "wolfram",
+   "outputs": [],
+   "metadata": {},
+   "executionSummary": {
+    "timing": {
+     "startTime": 1701784247410,
+     "endTime": 1701784247472
+    },
+    "executionOrder": 22,
+    "success": true
+   }
+  },
+  {
+   "kind": 2,
+   "value": "(* special harper operator for coherent state generation *)\nHarperOperator[\\[CapitalNu]_] := Block[{U0 = GenMat[U, \\[CapitalNu]],V0 = GenMat[V, \\[CapitalNu]], I0 = IdentityMatrix[\\[CapitalNu]]},2 I0 - (U0+U0\\[ConjugateTranspose])/2-(V0+V0\\[ConjugateTranspose])/2]",
+   "languageId": "wolfram",
+   "outputs": [],
+   "metadata": {},
+   "executionSummary": {
+    "timing": {
+     "startTime": 1701784263881,
+     "endTime": 1701784263944
+    },
+    "executionOrder": 23,
+    "success": true
+   }
+  },
+  {
+   "kind": 2,
+   "value": "(* translation operator for coherent state representation *)\nTransOperator[p_,q_,\\[CapitalNu]_]:=Block[{U0 = GenMat[U, \\[CapitalNu]],V0=GenMat[V, \\[CapitalNu]]},Exp[((I \\[Pi])/\\[CapitalNu])p q] MatrixPower[U0,p].MatrixPower[ Inverse[V0],q]]",
+   "languageId": "wolfram",
+   "outputs": [],
+   "metadata": {},
+   "executionSummary": {
+    "timing": {
+     "startTime": 1701784280271,
+     "endTime": 1701784280340
+    },
+    "executionOrder": 24,
+    "success": true
+   }
+  },
+  {
+   "kind": 2,
+   "value": "(* old bakers map operator without certain symmetries *)\nOldBakerOperator[\\[CapitalNu]_]:=Block[{Fn=GenMat[F, \\[CapitalNu]],Fn2=GenMat[F, \\[CapitalNu]/2]},Inverse[0.0+Fn].BlockDiagonalMatrix[Fn2,Fn2]]\n(* new bakers map where symmetries are added *)\nNewBakerOperator[\\[CapitalNu]_]:=Block[{Gn=GenMat[G, \\[CapitalNu]],Gn2=GenMat[G, \\[CapitalNu]/2]},Inverse[0.0+Gn].BlockDiagonalMatrix[{Gn2,Gn2}]]",
+   "languageId": "wolfram",
+   "outputs": [],
+   "metadata": {},
+   "executionSummary": {
+    "timing": {
+     "startTime": 1701784288350,
+     "endTime": 1701784288472
+    },
+    "executionOrder": 25,
+    "success": true
+   }
+  },
+  {
+   "kind": 2,
+   "value": "R[\\[CapitalNu]_] := -MatrixPower[GenMat[G, \\[CapitalNu]], 2]",
+   "languageId": "wolfram",
+   "outputs": [],
+   "metadata": {},
+   "executionSummary": {
+    "timing": {
+     "startTime": 1701784295782,
+     "endTime": 1701784295846
+    },
+    "executionOrder": 27,
+    "success": true
+   }
+  },
+  {
+   "kind": 2,
+   "value": "psi0[\\[CapitalNu]_] :=\n Eigensystem[HarperOperator[\\[CapitalNu]], -1][[2]]",
+   "languageId": "wolfram",
+   "outputs": [],
+   "metadata": {},
+   "executionSummary": {
+    "timing": {
+     "startTime": 1701784299431,
+     "endTime": 1701784299499
+    },
+    "executionOrder": 28,
+    "success": true
+   }
+  },
+  {
+   "kind": 2,
+   "value": "pq[p_, q_, \\[CapitalNu]_] :=\n TransOperator[p, q, \\[CapitalNu]] . psi0[\\[CapitalNu]]\\[Transpose]",
+   "languageId": "wolfram",
+   "outputs": [],
+   "metadata": {},
+   "executionSummary": {
+    "timing": {
+     "startTime": 1701784303027,
+     "endTime": 1701784303090
+    },
+    "executionOrder": 29,
+    "success": true
+   }
+  },
+  {
+   "kind": 2,
+   "value": "W[p_,q_,\\[CapitalNu]_,psi_]:=1/\\[CapitalNu] Abs[pq[p,q,\\[CapitalNu]]\\[Transpose].psi\\[Transpose]]^2",
+   "languageId": "wolfram",
+   "outputs": [],
+   "metadata": {},
+   "executionSummary": {
+    "timing": {
+     "startTime": 1701784314365,
+     "endTime": 1701784314427
+    },
+    "executionOrder": 31,
+    "success": true
+   }
+  },
+  {
+   "kind": 2,
+   "value": "W[1, 1, 4, psi0[4]] == W[5, 1, 4, psi0[4]]",
+   "languageId": "wolfram",
+   "outputs": [
+    {
+     "items": [
+      {
+       "data": "<div class=\"wexpr\"><w>True</w></div>",
+       "mime": "x-application/wolfram-language-html"
+      },
+      {
+       "data": "True",
+       "mime": "text/plain"
+      }
+     ],
+     "id": "5e331fb3-c7d9-4ff3-9c20-16f2681e5e89",
+     "metadata": {
+      "cellLabel": "Out[32]= ",
+      "isBoxData": false
+     }
+    }
+   ],
+   "metadata": {},
+   "executionSummary": {
+    "timing": {
+     "startTime": 1701784318996,
+     "endTime": 1701784319208
+    },
+    "executionOrder": 32,
+    "success": true
+   }
+  },
+  {
+   "kind": 2,
+   "value": "",
+   "languageId": "wolfram",
+   "outputs": [],
+   "metadata": {},
+   "executionSummary": {}
+  }
+ ]
+}

@@ -97,7 +97,7 @@ class QBM:
             self.gen_trans_ops()
         U = self.UV["U"]
         V = self.UV["V"]
-        return exp((1j*pi/N))*(mpower(U, p) @ mpower(inv(V), q))
+        return exp((1j*pi/N)*(p*q))*(mpower(U, p) @ mpower(inv(V), q))
 
     def gen_cob_mat(self, N = None, alpha = 1):
         if N is None:
@@ -156,10 +156,22 @@ class QBM:
         evecs = []
         for _ in range(len(evecs_)):
             evecs.append(evecs_[:, _])
+
+        qenergy = np.angle(evals) / (2*np.pi)
+
+        R = self.R_sym()
+        parities = np.array(
+            [int(np.round(np.average(
+                (R @ evecs[_]) / evecs[_]
+                ).real, 1)) for _ in range(N)]
+            )
+
         self.baker_states = {
             "N": N,
             "evals": evals,
-            "evecs": evecs
+            "evecs": evecs,
+            "qenergy": qenergy,
+            "parities": parities
         }
 
     def pq_state(self, p: int, q: int, N = None):
@@ -172,7 +184,7 @@ class QBM:
     def W_pq(self, p: int, q: int, psi, N = None):
         if N is None:
             N = self.N
-        return ((1/N)*(np.abs(self.pq_state(p, q, N).T @ psi)**2))[0,0]
+        return ((1/N)*(np.abs(self.pq_state(p, q, N).H @ psi)**2))[0,0]
 
     def R_sym(self, N = None):
         if N is None:
@@ -199,7 +211,7 @@ class QBM:
             p = _ // N
             q =  _ % N
             pq = self.pq_state(p, q, N)
-            RT[p, q] += (np.abs(pq.T @ mpower(B, T) @ pq)**2)[0, 0]
+            RT[p, q] += (np.abs(pq.H @ mpower(B, T) @ pq)**2)[0, 0]
         self.RT = {
             "T": T,
             "N": N,
