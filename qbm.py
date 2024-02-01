@@ -4,6 +4,7 @@ Quantum Baker's Map module.
 
 # imports
 import numpy as np
+import matplotlib.pyplot as plt
 from scipy.linalg import block_diag
 from tqdm import tqdm
 
@@ -186,6 +187,30 @@ class QBM:
             N = self.N
         return ((1/N)*(np.abs(self.pq_state(p, q, N).H @ psi)**2))[0,0]
 
+    def gen_W(self, state, N = None):
+        if N is None:
+            N = self.N
+        W = np.zeros((N, N))
+        for p in range(N):
+            for q in range(N):
+                W[q, p] = self.W_pq(q+1, p+1, state)
+        return W
+
+    def move_hs(self, i: int, crd: tuple, autocorr = True, N = None):
+        if N is None:
+            N = self.N
+        if self.harper_states is None:
+            self.gen_harper_states(N)
+        hi = self.harper_states['evecs'][i]
+        his = self.T_pq(*crd) @ hi
+        if autocorr:
+            his_pq = np.zeros((N, N))
+            for p in range(N):
+                for q in range(N):
+                    his_pq[q, p] = self.W_pq(q+1, p+1, his)
+            return his_pq
+        return his
+
     def R_sym(self, N = None):
         if N is None:
             N = self.N
@@ -218,6 +243,94 @@ class QBM:
             "RT": RT
         }
         return RT
+
+class Duality:
+
+    def __init__(self, s: QBM):
+        self.s = s
+        self.N = s.N
+        self.h_st = None
+        self.h_ev = None
+        self.h_pqs = None
+        self.sh_op = None
+
+        self.init()
+
+    def init(self):
+        s = self.s
+        N = self.N
+        s.gen_harper_states()
+        self.h_st = s.harper_states["evecs"]
+        self.h_ev = s.harper_states["evals"]
+        self.sh_op = s.T_pq(s.N//2, s.N//2)
+        self.harper_states_pq()
+
+    def harper_states_pq(self):
+        s = self.s
+        N = self.N
+        h_st = self.h_st
+        h_pqs = []
+        for _ in tqdm(range(N)):
+            atemp = np.zeros((N, N))
+            for p in range(N):
+                for q in range(N):
+                    atemp[q, p] = s.W_pq(q+1, p+1, h_st[_])
+            h_pqs.append(atemp)
+        self.h_pqs = h_pqs
+
+    def plot_compare_states(
+        self, st1, st2, k, cmap = "binary", interp = "spline16"
+        ):
+        fig, axes = plt.subplots(1, 2, figsize=(6, 3))
+        axes[0].matshow(st1, cmap=cmap, interpolation=interp)
+        axes[1].matshow(st2, cmap=cmap, interpolation=interp)
+        for ax in axes.ravel():
+            ax.set_xticks([])
+            ax.set_yticks([])
+            ax.set(aspect=1)
+        plt.suptitle(f"Eigenstate (left) and shifted dual state (right) (k = {k})")
+        plt.tight_layout()
+        plt.show()
+
+    def get_shifted_phase(self, og, du, npc = False):
+        og_st = self.h_st[og]
+        du_st = self.h_st[du]
+        op = self.sh_op
+        npval = (og_st.H @ op @ du_st)[0, 0]
+        if npc:
+            return npval
+        return np.angle(npval)
+
+    def k_phase(self, k: int, npc = False):
+        return self.get_shifted_phase(-1-k, k, npc)
+
+    def plot_harper_states(
+        self, nc: int = 4, interp = 'spline16', cmap = 'hot'
+        ):
+        N = self.s.N
+        hpqs = self.h_pqs
+        hvals = self.h_ev
+        if N % nc:
+            nr = (N // nc) + 1
+        else:
+            nr = N // nc
+        fig, axes = plt.subplots(nr, nc, figsize=(nc*2, nr*2))
+        ind = 1
+        for i in range(nr):
+            for j in range(nc):
+                if ind > N:
+                    axes[i, j].axis('off')
+                    continue
+                axes[i, j].set_title(f"n = {ind} ({np.round(np.abs(hvals[ind-1]), 4)})", pad = 0.5, y = 2)
+                axes[i, j].matshow(hpqs[ind-1], interpolation=interp, cmap=cmap)
+                ind += 1
+        for ax in axes.ravel():
+            # ax.set_axis_off()
+            ax.set_xticks([])
+            ax.set_yticks([])
+        plt.suptitle(f'Harper eigenstates in coherent-state representation (N = {N})')
+        plt.tight_layout()
+        plt.show()
 
 if __name__ == "__main__":
     pass
