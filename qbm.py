@@ -44,8 +44,7 @@ class QBM:
             N = self.N
         if k == kp:
             return exp(1j*(2*pi/N)*(k+0.5))
-        else:
-            return V0
+        return V0
 
     # change of basis operator
     # for alpha values, 1 gives sareceno version, 0 gives balazs version
@@ -60,7 +59,7 @@ class QBM:
         mat = np.matrix(np.zeros((N, N), dtype=complex))
         for i in range(N):
             for j in range(N):
-                mat[i, j] += op(i, j, N)
+                mat[i, j] += op(j, i, N)
         return mat
 
     def gen_trans_ops(self, N = None):
@@ -249,10 +248,12 @@ class Duality:
     def __init__(self, s: QBM):
         self.s = s
         self.N = s.N
+        self.H = None
         self.h_st = None
         self.h_ev = None
         self.h_pqs = None
         self.sh_op = None
+        self.shifted_harper_states = None
 
         self.init()
 
@@ -260,9 +261,10 @@ class Duality:
         s = self.s
         N = self.N
         s.gen_harper_states()
+        self.H = s.H["H"]
         self.h_st = s.harper_states["evecs"]
         self.h_ev = s.harper_states["evals"]
-        self.sh_op = s.T_pq(s.N//2, s.N//2)
+        self.sh_op = s.T_pq(N//2, N//2)
         self.harper_states_pq()
 
     def harper_states_pq(self):
@@ -291,6 +293,23 @@ class Duality:
         plt.suptitle(f"Eigenstate (left) and shifted dual state (right) (k = {k})")
         plt.tight_layout()
         plt.show()
+
+    def gen_shifted_states(
+        self
+        ):
+        harper_states = self.s.harper_states
+        sh_h_evecs = []
+        sh_h_evals = []
+        for st in harper_states['evecs']:
+            sh_st = self.sh_op @ st
+            sh_ev = np.mean((self.H @ sh_st) / sh_st)
+            sh_h_evecs.append(sh_st)
+            sh_h_evals.append(sh_ev)
+        self.shifted_harper_states = {
+            "N": self.s.N,
+            "evals": np.array(sh_h_evals),
+            "evecs": sh_h_evecs
+        }
 
     def get_shifted_phase(self, og, du, npc = False):
         og_st = self.h_st[og]
