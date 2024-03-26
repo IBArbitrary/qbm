@@ -18,8 +18,9 @@ eig = np.linalg.eig
 
 class QBM:
 
-    def __init__(self, N: int = 32):
+    def __init__(self, N: int = 32, alpha = 1):
         self.N = N
+        self.alpha = alpha
         self.ifUV = False
         self.UV = None
         self.H = None
@@ -30,6 +31,7 @@ class QBM:
         self.baker_states = None
         self.RT = None
 
+    # legacy
     def U_kkp(self, k: int, kp: int, N = None):
         U0 = 0j
         if N is None:
@@ -38,12 +40,57 @@ class QBM:
             U0 += (1/N)*exp(1j*(2*pi/N)*(kp-k+1)*(_+0.5))
         return U0
 
+    # position basis
+    def U_comp(self, n:int, n_: int, N = None, alpha = None):
+        U0 = 0j
+        if N is None:
+            N = self.N
+        if alpha is None:
+            alpha = self.alpha
+        if n == n_:
+            return exp(1j*(2*pi/N)*(n + alpha*0.5))
+        return U0
+
+    # momentum basis
+    def U_comp_(self, k:int, k_: int, N = None, alpha = None):
+        U0 = 0j
+        if N is None:
+            N = self.N
+        if alpha is None:
+            alpha = self.alpha
+        if k == k_ + 1:
+            return (1+0j)
+        return U0
+
+    # legacy
     def V_kkp(self, k: int, kp: int, N = None):
         V0 = 0j
         if N is None:
             N = self.N
         if k == kp:
             return exp(1j*(2*pi/N)*(k+0.5))
+        return V0
+
+    # position basis
+    def V_comp(self, n: int, n_: int, N = None, alpha = None):
+        V0 = 0j
+        if N is None:
+            N = self.N
+        if alpha is None:
+            alpha = self.alpha
+        if n == n_ + (-1)**alpha:
+            return 1j
+        return V0
+
+    # momentum basis
+    def V_comp_(self, k: int, k_: int, N = None, alpha = None):
+        V0 = 0j
+        if N is None:
+            N = self.N
+        if alpha is None:
+            alpha = self.alpha
+        if k == k_:
+            return exp(1j*(2*pi/N)*(k + alpha*0.5))
         return V0
 
     # change of basis operator
@@ -59,12 +106,49 @@ class QBM:
         mat = np.matrix(np.zeros((N, N), dtype=complex))
         for i in range(N):
             for j in range(N):
-                mat[i, j] += op(j, i, N)
+                mat[i, j] += op(i, j, N)
         return mat
 
-    def gen_trans_ops(self, N = None):
+    # momentum basis
+    def gen_trans_ops(self, N = None, alpha = None):
         if N is None:
             N = self.N
+        if alpha is None:
+            alpha = self.alpha
+        U_ = lambda k, k_, N: self.U_comp_(k, k_, N, alpha)
+        V_ = lambda k, k_, N: self.V_comp_(k, k_, N, alpha)
+        U = self.gen_mat(U_, N)
+        V = self.gen_mat(V_, N)
+        self.UV = {
+            "N": N,
+            "U": U,
+            "V": V,
+        }
+        self.ifUV = True
+
+    # position basis
+    def gen_trans_ops__(self, N = None, alpha = None):
+        if N is None:
+            N = self.N
+        if alpha is None:
+            alpha = self.alpha
+        U_ = lambda n, n_, N: self.U_comp(n, n_, N, alpha)
+        V_ = lambda n, n_, N: self.V_comp(n, n_, N, alpha)
+        U = self.gen_mat(U_, N)
+        V = self.gen_mat(V_, N)
+        self.UV = {
+            "N": N,
+            "U": U,
+            "V": V,
+        }
+        self.ifUV = True
+
+    # legacy
+    def gen_trans_ops_(self, N = None, alpha = None):
+        if N is None:
+            N = self.N
+        if alpha is None:
+            alpha = self.alpha
         U = self.gen_mat(self.U_kkp, N)
         V = self.gen_mat(self.V_kkp, N)
         self.UV = {
@@ -74,11 +158,13 @@ class QBM:
         }
         self.ifUV = True
 
-    def harper(self, N = None):
+    def harper(self, N = None, alpha = None):
         if N is None:
             N = self.N
+        if alpha is None:
+            alpha = self.alpha
 
-        self.gen_trans_ops(N)
+        self.gen_trans_ops(N, alpha)
         U = self.UV["U"]
         V = self.UV["V"]
 
@@ -90,25 +176,35 @@ class QBM:
         }
         return H
 
-    def T_pq(self, p: int, q:int , N = None):
+    def T_pq(self, p: int, q:int , N = None, alpha = None):
         if N is None:
             N = self.N
+        if alpha is None:
+            alpha = self.alpha
         if (self.UV is None) or (self.UV["N"] != N):
-            self.gen_trans_ops()
+            self.gen_trans_ops(N, alpha)
         U = self.UV["U"]
         V = self.UV["V"]
-        return exp((1j*pi/N)*(p*q))*(mpower(U, p) @ mpower(inv(V), q))
+        if alpha == 1:
+            V_ = inv(V)
+        else:
+            V_ = V
+        return exp((1j*pi*(2 - alpha)/N)*(p*q))*(mpower(U, p) @ mpower(V_, q))
 
-    def gen_cob_mat(self, N = None, alpha = 1):
+    def gen_cob_mat(self, N = None, alpha = None):
         if N is None:
             N = self.N
+        if alpha is None:
+            alpha = self.alpha
         F_kn_ = lambda k, n, N: self.F_kn(k, n, N, alpha)
         F = self.gen_mat(F_kn_, N)
         return F
 
-    def baker(self, N = None, alpha = 1):
+    def baker(self, N = None, alpha = None):
         if N is None:
             N = self.N
+        if alpha is None:
+            alpha = self.alpha
         assert N % 2 == 0
         F_n = self.gen_cob_mat(N, alpha)
         F_n2 = self.gen_cob_mat(N//2, alpha)
@@ -119,11 +215,13 @@ class QBM:
         }
         return B
 
-    def gen_harper_states(self, N = None):
+    def gen_harper_states(self, N = None, alpha = None):
         if N is None:
             N = self.N
+        if alpha is None:
+            alpha = self.alpha
         if (self.H is None) or (self.H["N"] != N):
-            self.harper(N)
+            self.harper(N, alpha)
         H = self.H["H"]
         evals, evecs_ = eig(H)
         idx = evals.argsort()
@@ -143,11 +241,13 @@ class QBM:
             "psi0": psi0
         }
 
-    def gen_baker_states(self, N = None):
+    def gen_baker_states(self, N = None, alpha = None):
         if N is None:
             N = self.N
+        if alpha is None:
+            alpha = self.alpha
         if (self.B is None) or (self.B["N"] != N):
-            self.baker(N)
+            self.baker(N, alpha)
         B = self.B["B"]
         evals, evecs_ = eig(B)
         idx = evals.argsort()
@@ -157,7 +257,7 @@ class QBM:
         for _ in range(len(evecs_)):
             evecs.append(evecs_[:, _])
 
-        qenergy = np.angle(evals) / (2*np.pi)
+        qenergy = np.angle(evals) / (2*pi)
 
         R = self.R_sym()
         parities = np.array(
@@ -174,25 +274,31 @@ class QBM:
             "parities": parities
         }
 
-    def pq_state(self, p: int, q: int, N = None):
+    def pq_state(self, p: int, q: int, N = None, alpha = None):
         if N is None:
             N = self.N
+        if alpha is None:
+            alpha = self.alpha
         if self.psi0 is None:
-            self.gen_harper_states(N)
+            self.gen_harper_states(N, alpha)
         return self.T_pq(p, q, N) @ self.psi0["psi0"]
 
-    def W_pq(self, p: int, q: int, psi, N = None):
+    def W_pq(self, p: int, q: int, psi, N = None, alpha = None):
         if N is None:
             N = self.N
-        return ((1/N)*(np.abs(self.pq_state(p, q, N).H @ psi)**2))[0,0]
+        if alpha is None:
+            alpha = self.alpha
+        return ((1/N)*(np.abs(self.pq_state(p, q, N, alpha).H @ psi)**2))[0,0]
 
-    def gen_W(self, state, N = None):
+    def gen_W(self, state, N = None, alpha = None):
         if N is None:
             N = self.N
+        if alpha is None:
+            alpha = self.alpha
         W = np.zeros((N, N))
         for p in range(N):
             for q in range(N):
-                W[q, p] = self.W_pq(q+1, p+1, state)
+                W[q, p] = self.W_pq(q+1, p+1, state, alpha)
         return W
 
     def move_hs(self, i: int, crd: tuple, autocorr = True, N = None):
@@ -210,10 +316,12 @@ class QBM:
             return his_pq
         return his
 
-    def R_sym(self, N = None):
+    def R_sym(self, N = None, alpha = None):
         if N is None:
             N = self.N
-        R = -1*mpower(self.gen_mat(self.F_kn, N), 2)
+        if alpha is None:
+            alpha = self.alpha
+        R = -1*mpower(self.gen_cob_mat(N, alpha), 2)
         self.R = {
             "N": N,
             "R": R
@@ -223,18 +331,20 @@ class QBM:
     def autocorr(self, T: int, N = None, alpha = 1):
         if N is None:
             N = self.N
+        if alpha is None:
+            alpha = self.alpha
         if (self.ifUV is False) or (self.UV["N"] != N):
-            self.gen_trans_ops()
+            self.gen_trans_ops(N, alpha)
         RT = np.zeros((N, N))
         if (self.psi0 is None) or (self.psi0["N"] != N):
-            self.gen_harper_states()
+            self.gen_harper_states(N, alpha)
         if (self.B is None) or (self.B["N"] != N):
             self.baker(N, alpha)
         B = self.B["B"]
         for _ in tqdm(range(N**2)):
             p = _ // N
             q =  _ % N
-            pq = self.pq_state(p, q, N)
+            pq = self.pq_state(p, q, N, alpha)
             RT[p, q] += (np.abs(pq.H @ mpower(B, T) @ pq)**2)[0, 0]
         self.RT = {
             "T": T,
@@ -248,6 +358,7 @@ class Duality:
     def __init__(self, s: QBM):
         self.s = s
         self.N = s.N
+        self.alpha = None
         self.H = None
         self.h_st = None
         self.h_ev = None
@@ -265,6 +376,7 @@ class Duality:
         self.h_st = s.harper_states["evecs"]
         self.h_ev = s.harper_states["evals"]
         self.sh_op = s.T_pq(N//2, N//2)
+        self.alpha = s.alpha
         self.harper_states_pq()
 
     def harper_states_pq(self):
