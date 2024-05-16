@@ -36,8 +36,8 @@ class QBM:
         U0 = 0j
         if N is None:
             N = self.N
-        for _ in range(N):
-            U0 += (1/N)*exp(1j*(2*pi/N)*(kp-k+1)*(_+0.5))
+        for n in range(N):
+            U0 += (1/N)*exp(1j*(2*pi/N)*(kp-k+1)*(n+0.5))
         return U0
 
     # position basis
@@ -58,8 +58,11 @@ class QBM:
             N = self.N
         if alpha is None:
             alpha = self.alpha
-        if k == k_ + 1:
-            return (1+0j)
+        if k == (k_ + 1) % N:
+            if k == 0:
+                return (-1+0j)
+            else:
+                return (1+0j)
         return U0
 
     # legacy
@@ -78,8 +81,8 @@ class QBM:
             N = self.N
         if alpha is None:
             alpha = self.alpha
-        if n == n_ + (-1)**alpha:
-            return 1j
+        if n == (n_ + 1) % N:
+            return (1+0j)
         return V0
 
     # momentum basis
@@ -125,6 +128,7 @@ class QBM:
             "V": V,
         }
         self.ifUV = True
+        return U, V
 
     # position basis
     def gen_trans_ops__(self, N = None, alpha = None):
@@ -142,6 +146,7 @@ class QBM:
             "V": V,
         }
         self.ifUV = True
+        return U, V
 
     # legacy
     def gen_trans_ops_(self, N = None, alpha = None):
@@ -157,6 +162,7 @@ class QBM:
             "V": V,
         }
         self.ifUV = True
+        return U, V
 
     def harper(self, N = None, alpha = None):
         if N is None:
@@ -412,11 +418,20 @@ class Duality:
         harper_states = self.s.harper_states
         sh_h_evecs = []
         sh_h_evals = []
+        sh_hpqs = []
+        N = self.N
         for st in harper_states['evecs']:
             sh_st = self.sh_op @ st
             sh_ev = np.mean((self.H @ sh_st) / sh_st)
             sh_h_evecs.append(sh_st)
             sh_h_evals.append(sh_ev)
+        for _ in tqdm(range(N)):
+            atemp = np.zeros((N, N))
+            for p in range(N):
+                for q in range(N):
+                    atemp[q, p] = self.s.W_pq(q+1, p+1, sh_h_evecs[_])
+            sh_hpqs.append(atemp)
+        self.sh_hpqs = sh_hpqs
         self.shifted_harper_states = {
             "N": self.s.N,
             "evals": np.array(sh_h_evals),
@@ -436,11 +451,16 @@ class Duality:
         return self.get_shifted_phase(-1-k, k, npc)
 
     def plot_harper_states(
-        self, nc: int = 4, interp = 'spline16', cmap = 'hot'
+        self, sh = False, nc: int = 4, interp = 'spline16', cmap = 'hot'
         ):
         N = self.s.N
-        hpqs = self.h_pqs
-        hvals = self.h_ev
+        if sh:
+            self.gen_shifted_states()
+            hpqs = self.sh_hpqs
+            hvals = self.shifted_harper_states["evals"]
+        else:
+            hpqs = self.h_pqs
+            hvals = self.h_ev
         if N % nc:
             nr = (N // nc) + 1
         else:
@@ -459,7 +479,10 @@ class Duality:
             # ax.set_axis_off()
             ax.set_xticks([])
             ax.set_yticks([])
-        plt.suptitle(f'Harper eigenstates in coherent-state representation (N = {N})')
+        if sh:
+            plt.suptitle(f'Shifted Harper eigenstates in coherent-state representation (N = {N})')
+        else:
+            plt.suptitle(f'Harper eigenstates in coherent-state representation (N = {N})')
         plt.tight_layout()
         plt.show()
 
